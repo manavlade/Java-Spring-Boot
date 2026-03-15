@@ -2,9 +2,11 @@ package com.example.demo.parser;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -51,10 +53,10 @@ public class ExcelParser {
                     dp[i][j] = dp[i - 1][j - 1]; 
                 } else {
                     dp[i][j] = 1 + Math.min(
-                            dp[i - 1][j - 1], // replace
+                            dp[i - 1][j - 1], 
                             Math.min(
-                                    dp[i - 1][j], // delete
-                                    dp[i][j - 1] // insert
+                                    dp[i - 1][j], 
+                                    dp[i][j - 1] 
                             ));
                 }
             }
@@ -78,7 +80,7 @@ public class ExcelParser {
         return bestDistance <= MAX_TYPO_ALLOWED ? bestMatch : null;
     }
 
-    @SuppressWarnings("unchecked")
+    // @SuppressWarnings("unchecked")
     private static Map<String, Object> buildColumnIndexMap(Row headerRow, DataFormatter formatter) {
         Map<String, Integer> columnsIndex = new LinkedHashMap<>();
         List<String> warnings = new ArrayList<>();
@@ -88,7 +90,7 @@ public class ExcelParser {
         for (String col : REQUIRED_COLUMNS)
             found.put(col, false);
 
-        for (Cell cell : headerRow) {
+        for(Cell cell : headerRow) {
             int position = cell.getColumnIndex();
             String actualHeader = formatter.formatCellValue(cell).trim();
 
@@ -266,6 +268,7 @@ public class ExcelParser {
 
         List<String> error = new ArrayList<>();
         List<String> warnings = new ArrayList<>();
+        Set<String> fileExistingEmail = new HashSet<>();
 
         try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -291,8 +294,10 @@ public class ExcelParser {
                 String name = formatter.formatCellValue(row.getCell(columnIndex.get("name")));
                 String email = formatter.formatCellValue(row.getCell(columnIndex.get("email")));
                 String password = formatter.formatCellValue(row.getCell(columnIndex.get("password")));
+                String ageVal = formatter.formatCellValue(row.getCell(columnIndex.get("age")));
+                String salaryVal = formatter.formatCellValue(row.getCell(columnIndex.get("salary")));
 
-                if (name.isBlank() && email.isBlank() && password.isBlank()) {
+                if (name.isBlank() && email.isBlank() && password.isBlank() && ageVal.isBlank() && salaryVal.isBlank()) {
                     logger.info("Skipping blank row {}", displayNumber);
                     continue;
                 }
@@ -323,6 +328,12 @@ public class ExcelParser {
                 validateFileRow(displayNumber, name, email, password, age, ageIsNumeric, salary, salaryIsDouble, error);
 
                 if (error.isEmpty()) {
+                    String emailLower = email.toLowerCase();
+                    if(fileExistingEmail.contains(emailLower)){
+                        error.add("Row " + displayNumber + " Duplicate email in file: " + email);
+                        logger.warn("Row {} has duplicate email in file: {}", displayNumber, email);
+                        continue;
+                    }
                     EmployeeUpload employeeUpload = new EmployeeUpload();
                     employeeUpload.setName(name);
                     employeeUpload.setEmail(email);
