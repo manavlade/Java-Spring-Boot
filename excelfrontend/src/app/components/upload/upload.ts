@@ -1,10 +1,10 @@
 import { Component, ElementRef, ViewChild, } from '@angular/core';
 import { FileErrorResponse, RowErrorResponse, UploadResponse } from '../../models/upload-response.model';
 import { FileUpload } from '../../services/file-upload';
-import { HttpErrorResponse, HttpResponse } from '@angular/common/http';
+import { HttpErrorResponse } from '@angular/common/http';
 
 
-type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError';
+type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError'| 'downloaded';
 
 @Component({
   selector: 'app-upload',
@@ -23,6 +23,7 @@ export class Upload {
   successResponse: UploadResponse | null = null;
   rowErrorResponse: RowErrorResponse | null = null;
   fileErrorResponse: string | null = null;
+  downloadedFileName: string | null = null;
 
   private readonly MAX_FILE_SIZE = 5 * 1024 * 1024;
   private readonly VALID_EXTENSIONS = ['.xlsx', 'xls'];
@@ -95,43 +96,53 @@ export class Upload {
     }
   }
 
-  upload(): void {
+    upload(): void {
     if (!this.selectedFile) return;
     this.state = 'uploading';
 
     this.uploadService.uploadFile(this.selectedFile).subscribe({
-      next: (response: UploadResponse) => {
-        this.successResponse = response;
-        this.state = 'success';
+      next: (blob: Blob) => {
+        const originalName = this.selectedFile!.name.replace(/\.(xlsx|xls)$/i, '');
+        const reportName = `${originalName}_report.xlsx`;
+        this.triggerDownload(blob, reportName);
+        this.downloadedFileName = reportName;
+        this.state = 'downloaded';
       },
       error: (err: HttpErrorResponse) => {
-        if (err.status === 400) {
-          const body = err.error;
-
-          if (body?.errors && Array.isArray(body.errors)) {
-            this.rowErrorResponse = body as RowErrorResponse;
-            this.state = 'rowErrors';
-          } else {
-            this.fileErrorResponse = (body as FileErrorResponse)?.error ?? "upload failed. please check your file";
+        if (err.error instanceof Blob) {
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const json = JSON.parse(reader.result as string);
+              this.fileErrorResponse = json.error ?? 'Upload failed. Please check your file.';
+            } catch {
+              this.fileErrorResponse = 'Upload failed. Please check your file.';
+            }
             this.state = 'FileError';
-          }
-        }
-        else if (err.status === 413) {
+          };
+          reader.readAsText(err.error);
+        } else if (err.status === 413) {
           this.fileErrorResponse = 'File too large. Max allowed size is 5MB.';
           this.state = 'FileError';
-        }
-        else if (err.status === 0) {
-
+        } else if (err.status === 0) {
           this.fileErrorResponse = 'Cannot reach the server. Make sure Spring Boot is running on port 8080.';
-          this.state = 'FileError'
-        }
-        else {
-          this.fileErrorResponse = err.error?.error ?? 'Something went wrong';
+          this.state = 'FileError';
+        } else {
+          this.fileErrorResponse = 'Something went wrong. Please try again.';
           this.state = 'FileError';
         }
       }
-    })
+    });
+  }
 
+
+  private triggerDownload(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = filename;
+    anchor.click();
+    window.URL.revokeObjectURL(url);
   }
 
   reset(): void {
@@ -145,6 +156,12 @@ export class Upload {
     if(this.fileInputRef){
       this.fileInputRef.nativeElement.value = '';
     }
+  }
+
+    formatBytes(bytes: number): string {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
   }
 
 }

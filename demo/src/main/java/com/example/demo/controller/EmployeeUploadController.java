@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -18,6 +19,7 @@ import com.example.demo.Exception.RowValidationException;
 import com.example.demo.parser.ExcelParser;
 import com.example.demo.service.EmployeeUploadService;
 
+@CrossOrigin(origins = "http://localhost:4200")
 @RestController
 @RequestMapping("/api/employee")
 public class EmployeeUploadController {

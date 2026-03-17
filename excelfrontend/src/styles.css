@@ -1,3 +1,28 @@
 /* You can add global styles to this file, and also import other style files */
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&display=swap');
 
 @import 'tailwindcss';
+
+
+
+@layer base {
+  :root {
+    --font-mono: 'Space Mono', monospace;
+    --font-sans: 'DM Sans', sans-serif;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: #111118; }
+  ::-webkit-scrollbar-thumb { background: #2a2a35; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #3a3a48; }
+}
+
+.font-mono {
+  font-family: var(--font-mono) !important;
+}
