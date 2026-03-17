@@ -4,7 +4,7 @@ import { Upload } from './components/upload/upload';
 
 @Component({
   selector: 'app-root',
-  imports: [Upload],
+  imports: [Upload, RouterOutlet],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })

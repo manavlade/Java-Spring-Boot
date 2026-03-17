@@ -267,38 +267,40 @@ public class ExcelParser {
         }
     }
 
-    public static void validateFileRow(int displayRow, String name, String email, String password, int age,
-            boolean ageIsNumeric, double salary, boolean salaryIsDouble, List<String> errors) {
-        if (name.isBlank()) {
+    public static void validateFileRow(int displayRow, String name, String email,
+        String password, int age, boolean ageIsNumeric,
+        double salary, boolean salaryIsDouble, List<String> errors) {
 
-            errors.add("Row" + displayRow + "-Name missing");
-        }
-
-        String emailRegex = "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
-        if (email.isBlank()) {
-            errors.add("Row" + displayRow + "-Email missing");
-        } else if (!email.matches(emailRegex)) {
-            errors.add("Row " + displayRow + " Invalid Email format ");
-        }
-
-        if (password.isBlank()) {
-            errors.add("Row " + displayRow + "-password missing");
-        } else if (password.length() < 8) {
-            errors.add("Row " + displayRow + " password must be ateast 8 characters");
-        }
-
-        if (!ageIsNumeric) {
-            errors.add("Row " + displayRow + "-Age is not number");
-        } else if (age <= 0 || age > 120) {
-            errors.add("Row " + displayRow + "Age must be greater than 0 and less than 120");
-        }
-
-        if (!salaryIsDouble) {
-            errors.add("Row " + displayRow + "-Salary is not number");
-        } else if (salary <= 0) {
-            errors.add("Row " + displayRow + "Salary must be greater than 0");
-        }
+    if (name.isBlank()) {
+        errors.add("Row " + displayRow + " — Name is missing");
     }
+
+    String emailRegex =
+        "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
+    if (email.isBlank()) {
+        errors.add("Row " + displayRow + " — Email is missing");
+    } else if (!email.matches(emailRegex)) {
+        errors.add("Row " + displayRow + " — Invalid email format");
+    }
+
+    if (password.isBlank()) {
+        errors.add("Row " + displayRow + " — Password is missing");
+    } else if (password.length() < 8) {
+        errors.add("Row " + displayRow + " — Password must be at least 8 characters");
+    }
+
+    if (!ageIsNumeric) {
+        errors.add("Row " + displayRow + " — Age is not a number");
+    } else if (age <= 0 || age > 120) {
+        errors.add("Row " + displayRow + " — Age must be between 1 and 120");
+    }
+
+    if (!salaryIsDouble) {
+        errors.add("Row " + displayRow + " — Salary is not a number");
+    } else if (salary <= 0) {
+        errors.add("Row " + displayRow + " — Salary must be greater than 0");
+    }
+}
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> validateStruture(Workbook workbook, Sheet sheet) {
@@ -415,6 +417,7 @@ public class ExcelParser {
     public static byte[] generateReport(MultipartFile file) {
 
         validateFile(file);
+        
 
         try (Workbook inputWorkbook = WorkbookFactory.create(file.getInputStream())) {
 
@@ -527,7 +530,7 @@ public class ExcelParser {
 
             return baos.toByteArray();
 
-        } catch (ExcelValidationException | RowValidationException e) {
+        } catch (ExcelValidationException e) {
             throw e;
         } catch (Exception e) {
             logger.error("Report generation failed: {}", e.getMessage(), e);
