@@ -1,10 +1,11 @@
 import { Component, ElementRef, ViewChild, } from '@angular/core';
-import { FileErrorResponse, RowErrorResponse, UploadResponse } from '../../models/upload-response.model';
+import { RowErrorResponse, UploadResponse } from '../../models/upload-response.model';
 import { FileUpload } from '../../services/file-upload';
 import { HttpErrorResponse } from '@angular/common/http';
+import { HotToastService } from '@ngxpert/hot-toast';
 
 
-type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError'| 'downloaded';
+type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError' | 'downloaded';
 
 @Component({
   selector: 'app-upload',
@@ -24,15 +25,19 @@ export class Upload {
   rowErrorResponse: RowErrorResponse | null = null;
   fileErrorResponse: string | null = null;
   downloadedFileName: string | null = null;
+  reportBlob: Blob | null = null;
 
   private readonly MAX_FILE_SIZE = 5 * 1024 * 1024;
-  private readonly VALID_EXTENSIONS = ['.xlsx', 'xls'];
+  private readonly VALID_EXTENSIONS = ['.xlsx', '.xls'];
   private readonly VALID_TYPES = [
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
   ];
 
-  constructor(private readonly uploadService: FileUpload) { }
+  constructor(
+    private readonly uploadService: FileUpload,
+    private readonly toast: HotToastService
+  ) { }
 
   onDragOver(event: DragEvent): void {
     event.preventDefault();
@@ -63,6 +68,7 @@ export class Upload {
     if (error) {
       this.ClientError = error;
       this.selectedFile = null;
+      this.toast.error(error);
       return;
     }
     this.ClientError = null;
@@ -74,7 +80,7 @@ export class Upload {
     const hasValidExtension = this.VALID_EXTENSIONS.some(ext => name.endsWith(ext));
     const hasValidType = this.VALID_TYPES.includes(file.type);
 
-    if (!hasValidExtension && !hasValidType) {
+    if (!hasValidExtension || !hasValidType) {
       return 'Invalid file type. Only .xlsx and .xls files are accepted.'
     }
 
@@ -90,23 +96,31 @@ export class Upload {
   removeFile(): void {
     this.selectedFile = null;
     this.ClientError = null;
+    this.toast.info('File removed. You can select a new file to upload.');
 
     if (this.fileInputRef) {
       this.fileInputRef.nativeElement.value = '';
     }
   }
 
-    upload(): void {
+  upload(): void {
     if (!this.selectedFile) return;
     this.state = 'uploading';
+
+    this.toast.loading('Uploading file...', {
+      id: 'upload-toast'
+    });
 
     this.uploadService.uploadFile(this.selectedFile).subscribe({
       next: (blob: Blob) => {
         const originalName = this.selectedFile!.name.replace(/\.(xlsx|xls)$/i, '');
         const reportName = `${originalName}_report.xlsx`;
-        this.triggerDownload(blob, reportName);
+        this.reportBlob = blob;
         this.downloadedFileName = reportName;
         this.state = 'downloaded';
+        console.log('API success hit');
+        this.toast.close('upload-toast');
+        this.toast.success('Report ready! Click the button to download.');
       },
       error: (err: HttpErrorResponse) => {
         if (err.error instanceof Blob) {
@@ -114,27 +128,50 @@ export class Upload {
           reader.onload = () => {
             try {
               const json = JSON.parse(reader.result as string);
+              this.toast.error(json.error ?? 'Upload failed. Please check your file.', {
+                id: 'upload-toast'
+              });
               this.fileErrorResponse = json.error ?? 'Upload failed. Please check your file.';
             } catch {
-              this.fileErrorResponse = 'Upload failed. Please check your file.';
+              this.toast.error(this.fileErrorResponse || 'Upload failed. Please check your file.', {
+                id: 'upload-toast'
+              });
             }
             this.state = 'FileError';
           };
           reader.readAsText(err.error);
         } else if (err.status === 413) {
           this.fileErrorResponse = 'File too large. Max allowed size is 5MB.';
+          this.toast.error('File too large. Max allowed size is 5MB.', {
+            id: 'upload-toast'
+          });
           this.state = 'FileError';
         } else if (err.status === 0) {
           this.fileErrorResponse = 'Cannot reach the server. Make sure Spring Boot is running on port 8080.';
+          this.toast.error('Cannot reach the server. Make sure Spring Boot is running on port 8080.', {
+            id: 'upload-toast'
+          });
           this.state = 'FileError';
         } else {
           this.fileErrorResponse = 'Something went wrong. Please try again.';
+          this.toast.error('Something went wrong. Please try again.', {
+            id: 'upload-toast'
+          });
           this.state = 'FileError';
         }
       }
     });
   }
 
+  downloadReport(): void {
+    if (!this.reportBlob || !this.downloadedFileName) return;
+
+    this.triggerDownload(this.reportBlob, this.downloadedFileName);
+
+    this.toast.success('Download started!!', {
+      id: 'download-toast'
+    });
+  }
 
   private triggerDownload(blob: Blob, filename: string): void {
     const url = window.URL.createObjectURL(blob);
@@ -152,13 +189,15 @@ export class Upload {
     this.successResponse = null;
     this.rowErrorResponse = null;
     this.fileErrorResponse = null;
+    this.reportBlob = null;
+    this.downloadedFileName = null;
 
-    if(this.fileInputRef){
+    if (this.fileInputRef) {
       this.fileInputRef.nativeElement.value = '';
     }
   }
 
-    formatBytes(bytes: number): string {
+  formatBytes(bytes: number): string {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
