@@ -1,16 +1,22 @@
-FROM node:24-alpine AS builder
+ARG NODE_VERSION=24-alpine
+FROM  node:${NODE_VERSION} AS builder
+
 WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci
+
+COPY package.json package-lock.json* ./
+RUN --mount=type=cache, target=/root/.npm npm ci
 
 COPY . .
 RUN npm run build -- --configuration=production
 
-FROM nginx:alpine
-RUN rm -rf /usr/share/nginx/html/*
-COPY --from=builder /app/dist /usr/share/nginx/html
+FROM nginxinc/nginx-unprivileged:alpine AS runner
 
-COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
 
-CMD [ "nginx", "-g", "daemon off" ]
+COPY nginx.conf /etc/nginx/nginx.conf
+COPY --chown=nginx:nginx --from=builder /app/dist/*/browser /usr/share/nginx/html
+
+USER nginx
+EXPOSE 8080
+
+ENTRYPOINT ["nginx", "-c", "/etc/nginx/nginx.conf"]
+CMD ["-g", "daemon off;"]

@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.example.demo.dto.EmployeeSalAgeTO;
 import com.example.demo.models.EmployeeUpload;
 import com.example.demo.parser.ExcelParser;
 import com.example.demo.repository.EmployeeUploadRepository;
@@ -25,6 +26,10 @@ public class EmployeeUploadService {
     public EmployeeUploadService(EmployeeUploadRepository employeeUploadRepository) {
         this.employeeUploadRepository = employeeUploadRepository;
     }
+
+    public List<EmployeeSalAgeTO> getChartData(){
+        return employeeUploadRepository.findAgeAndSalary();
+     }
 
     @SuppressWarnings("unchecked")
     public Map<String, Object> uploadEmployee(MultipartFile file) {

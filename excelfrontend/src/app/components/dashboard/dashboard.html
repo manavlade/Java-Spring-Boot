@@ -1,1 +1,19 @@
-<p>dashboard works!</p>
+<hlm-tabs tab="line-chart" class="w-full">
+  <hlm-tabs-list>
+    <button hlmTabsTrigger="bar-chart">Bar Chart</button>
+    <button hlmTabsTrigger="line-chart">Line Chart</button>
+    <button hlmTabsTrigger="pie-chart">Pie Chart</button>
+  </hlm-tabs-list>
+
+  <div hlmTabsContent="bar-chart">
+    <p>bar chart</p>
+  </div>
+
+  <div hlmTabsContent="line-chart">
+    <div id="chart" style="width: 100%; height: 400px;"></div>
+  </div>
+
+  <div hlmTabsContent="pie-chart">
+   <div id="bar-chart" style="width: 100%; height: 400px;"></div>
+  </div>
+</hlm-tabs>

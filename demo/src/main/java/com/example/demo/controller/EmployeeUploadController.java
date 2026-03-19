@@ -1,4 +1,6 @@
 package com.example.demo.controller;
+
+import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -8,6 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -16,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.Exception.ExcelValidationException;
 import com.example.demo.Exception.RowValidationException;
+import com.example.demo.dto.EmployeeSalAgeTO;
 import com.example.demo.parser.ExcelParser;
 import com.example.demo.service.EmployeeUploadService;
 
@@ -35,23 +39,22 @@ public class EmployeeUploadController {
     @PostMapping("/upload")
     public ResponseEntity<?> uploadEmployee(@RequestParam("file") MultipartFile file) {
         try {
-           Map<String, Object> response = employeeUploadService.uploadEmployee(file);
-           return ResponseEntity.ok(response);
-        } catch (RowValidationException e) {        
-            throw e;                                   
+            Map<String, Object> response = employeeUploadService.uploadEmployee(file);
+            return ResponseEntity.ok(response);
+        } catch (RowValidationException e) {
+            throw e;
         } catch (ExcelValidationException e) {
             logger.warn("File validation failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "error", e.getMessage()
-            ));
+                    "error {}", e.getMessage()));
         } catch (Exception e) {
             logger.error("Upload failed: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", e.getMessage()
-            ));
+                    "error {}", e.getMessage()));
         }
     }
-       @PostMapping("/upload/report")
+
+    @PostMapping("/upload/report")
     public ResponseEntity<?> uploadAndDownloadReport(@RequestParam("file") MultipartFile file) {
         try {
             // calls generateReport() — NEVER throws RowValidationException
@@ -77,14 +80,17 @@ public class EmployeeUploadController {
             // file level or structure level error — return JSON error
             logger.warn("Report generation failed — file validation: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-                "error", e.getMessage()
-            ));
+                    "error", e.getMessage()));
 
         } catch (Exception e) {
             logger.error("Report generation failed: {}", e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                "error", "Something went wrong. Please try again."
-            ));
+                    "error", "Something went wrong. Please try again."));
         }
+    }
+
+    @GetMapping("/ChartData")
+    public ResponseEntity<List<EmployeeSalAgeTO>> getChartData() {
+        return ResponseEntity.ok(employeeUploadService.getChartData());
     }
 }
