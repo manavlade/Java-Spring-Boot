@@ -5,6 +5,6 @@ import { Dashboard } from './components/dashboard/dashboard';
 export const routes: Routes = [
     {
         path: '',
-        component: Dashboard
+        component: Upload
     }
 ];

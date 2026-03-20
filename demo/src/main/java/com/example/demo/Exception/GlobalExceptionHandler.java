@@ -1,17 +1,14 @@
 package com.example.demo.Exception;
 
-import com.example.demo.Exception.ExcelValidationException;  // ← make sure import exists
-import com.example.demo.Exception.RowValidationException;    // ← make sure import exists
+import java.util.Map;  
 
-import org.slf4j.Logger;
+import org.slf4j.Logger;    
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
-
-import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -22,7 +19,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<?> handleMaxUploadSize(MaxUploadSizeExceededException e) {
         logger.warn("File upload rejected — size exceeded");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
-            "error", "File size exceeds the maximum allowed size of 5MB." // ← FIXED: was "error {}"
+            "error {}", "File size exceeds the maximum allowed size of 5MB." 
         ));
     }
 
