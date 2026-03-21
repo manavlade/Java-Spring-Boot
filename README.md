@@ -1,13 +1,13 @@
 # Java-Spring-Boot - Excel Upload Application
 
-This project is a full-stack web application designed for uploading, validating, and processing Excel files containing employee and user data. It consists of a Java Spring Boot backend and an Angular frontend.
+This project is a full-stack web application designed for uploading, validating, and processing Excel files containing employee and user data. It consists of a Java Spring Boot backend and an Angular frontend designed with a modern user interface.
 
 ## Project Structure
 
 The repository is divided into two main parts:
 
 - `demo/`: The backend REST API built with Java Spring Boot.
-- `excelfrontend/`: The frontend web application built with Angular and Tailwind CSS.
+- `excelfrontend/`: The frontend web application built with Angular, Tailwind CSS, and Spartan UI.
 
 ## Backend (`demo/`)
 
@@ -16,7 +16,7 @@ The backend is responsible for receiving Excel file uploads, parsing the data (u
 ### Tech Stack
 - **Java 21**
 - **Spring Boot 4.x** (Web MVC, Data JPA)
-- **Apache POI** (for reading Excel `.xlsx` files)
+- **Apache POI** (5.4.0) for reading Excel `.xlsx` files
 - **Database**: PostgreSQL / H2 Database
 - **Lombok** (for reducing boilerplate code)
 
@@ -34,11 +34,14 @@ The backend is responsible for receiving Excel file uploads, parsing the data (u
 
 ## Frontend (`excelfrontend/`)
 
-The frontend provides a user interface for selecting and uploading Excel files to the backend server.
+The frontend provides a user interface for selecting and uploading Excel files, along with displaying data using charts and modern components. It includes a landing page, file upload capability, and data validation feedback.
 
 ### Tech Stack
 - **Angular 21**
 - **Tailwind CSS 4.x**
+- **Spartan UI** (for accessible, modern UI components)
+- **Apache ECharts** (for data visualization)
+- **Lucide Icons**
 - **TypeScript**
 
 ### How to Run
