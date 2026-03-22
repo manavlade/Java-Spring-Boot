@@ -1,170 +1,27 @@
-<router-outlet />
-
-<div>
-    <div class="flex  justify-between">
-        <div>
-            <h1 class="font-bold text-2xl">ExcelFront</h1>
-        </div>
-        <div>
-            <ul class="flex gap-4 items-center cursor-pointer">
-                <li class="hover:underline">Home</li>
-                <li class="hover:underline">About</li>
-                <li class="hover:underline">Upload</li>
-                <li class="hover:underline">Dashboard</li>
-            </ul>
-        </div>
-        <div class="flex gap-4 items-center">
-            <button hlmBtn>Sign In</button>
-            <button hlmBtn>Sign Up</button>
-        </div>
-    </div>
-
-    <!-- Hero section -->
+<div class="flex justify-between p-4 border-b">
     <div>
-        <div class="flex justify-between items-center">
-            <div>
-                <h1 class="text-6xl font-bold">ExcelFront</h1>
-                <p class="text-xl">Upload Excel files. Validate data. Move forward.</p>
-                <button hlmBtn>Get Started</button>
-            </div>
-            <div>
-                <img class="h-150 w-150" src="h1.jpg" alt="">
-            </div>
-        </div>
-    </div>
-
-    <div>
-        <section class="max-w-7xl mx-auto">
-
-            <div class="text-center mb-10">
-                <p class="text-sm text-gray-500">Capabilities</p>
-                <h2 class="text-3xl font-bold mt-2">What you get</h2>
-                <p class="text-gray-500 mt-2 text-sm">
-                    Three core features designed to handle your data workflow.
-                </p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 items-stretch">
-
-                <!-- Large Card -->
-                <div class="md:col-span-2 bg-gray-400 text-white flex flex-col justify-between h-full p-6">
-                    <div>
-                        <p class="text-xs opacity-80 mb-3">Upload</p>
-                        <h3 class="text-2xl font-semibold">
-                            Excel file handling made simple
-                        </h3>
-                        <p class="text-sm opacity-80 mt-3">
-                            Drop your .xlsx files and let the system parse them instantly.
-                        </p>
-                    </div>
-
-                    <div class="mt-6 flex items-center gap-4">
-                        <button class="border border-white px-4 py-2 text-sm">
-                            Explore
-                        </button>
-                        <span class="text-sm">Arrow →</span>
-                    </div>
-                </div>
-
-                <!-- Right Column -->
-                <div class="flex flex-col gap-6 h-full">
-
-                    <div class="bg-gray-400 text-white flex flex-col justify-between h-full p-6">
-                        <div>
-                            <div class="mb-4">⬜</div>
-                            <h4 class="font-semibold text-lg">
-                                Data validation that catches errors
-                            </h4>
-                            <p class="text-sm opacity-80 mt-2">
-                                Row-by-row validation ensures your data stays clean.
-                            </p>
-                        </div>
-                        <span class="text-sm mt-6">Arrow →</span>
-                    </div>
-
-                    <div class="bg-gray-400 text-white flex flex-col justify-between h-full p-6">
-                        <div>
-                            <div class="mb-4">⬜</div>
-                            <h4 class="font-semibold text-lg">
-                                Reliable error handling and feedback
-                            </h4>
-                            <p class="text-sm opacity-80 mt-2">
-                                Know exactly what went wrong and fix it fast.
-                            </p>
-                        </div>
-                        <span class="text-sm mt-6">Arrow →</span>
-                    </div>
-
-                </div>
-            </div>
-
-        </section>
+        <h1 class="font-bold text-2xl">ExcelFront</h1>
     </div>
     <div>
-        <section class="max-w-7xl mx-auto mt-16">
-
-            <!-- Heading -->
-            <div class="text-center mb-12">
-                <p class="text-sm text-gray-500">Process</p>
-                <h2 class="text-3xl font-bold mt-2">How it works in three steps</h2>
-                <p class="text-gray-500 mt-3 text-sm max-w-2xl mx-auto">
-                    The workflow is straightforward. Upload your file, let the system validate it, and watch your data
-                    get stored.
-                </p>
-            </div>
-
-            <!-- Steps -->
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8 items-stretch">
-
-                <!-- Step 1 -->
-                <div class="flex flex-col text-center h-full">
-                    <div class="bg-gray-300 flex items-center justify-center h-40 mb-6">
-                        📷
-                    </div>
-                    <h3 class="font-semibold text-lg">
-                        Select and upload your file
-                    </h3>
-                    <p class="text-sm text-gray-600 mt-3">
-                        Choose your Excel file from your computer and send it to the server.
-                    </p>
-                </div>
-
-                <!-- Step 2 -->
-                <div class="flex flex-col text-center h-full">
-                    <div class="bg-gray-300 flex items-center justify-center h-40 mb-6">
-                        📷
-                    </div>
-                    <h3 class="font-semibold text-lg">
-                        System validates every row
-                    </h3>
-                    <p class="text-sm text-gray-600 mt-3">
-                        Apache POI parses the data while custom validators check each entry.
-                    </p>
-                </div>
-
-                <!-- Step 3 -->
-                <div class="flex flex-col text-center h-full">
-                    <div class="bg-gray-300 flex items-center justify-center h-40 mb-6">
-                        📷
-                    </div>
-                    <h3 class="font-semibold text-lg">
-                        Data gets stored in the database
-                    </h3>
-                    <p class="text-sm text-gray-600 mt-3">
-                        Valid records are persisted to PostgreSQL for immediate access.
-                    </p>
-                </div>
-
-            </div>
-
-            <!-- CTA -->
-            <div class="flex justify-center items-center gap-4 mt-10">
-                <button class="border border-gray-700 px-5 py-2 text-sm">
-                    Get started
-                </button>
-                <span class="text-sm">Arrow →</span>
-            </div>
-
-        </section>
+        <ul class="flex gap-4 items-center cursor-pointer">
+            <li class="hover:underline">
+                <a routerLink="/">Home</a>
+            </li>
+            <li class="hover:underline">
+                <a routerLink="/about">About</a>
+            </li>
+            <li class="hover:underline">
+                <a routerLink="/upload">Upload</a>
+            </li>
+            <li class="hover:underline">
+                <a routerLink="/dashboard">Dashboard</a>
+            </li>
+        </ul>
+    </div>
+    <div class="flex gap-4 items-center">
+        <button hlmBtn>Sign In</button>
+        <button hlmBtn>Sign Up</button>
     </div>
 </div>
+
+<router-outlet />

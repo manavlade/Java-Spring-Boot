@@ -3,13 +3,15 @@ import { RowErrorResponse, UploadResponse } from '../../models/upload-response.m
 import { FileUpload } from '../../services/file-upload';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HotToastService } from '@ngxpert/hot-toast';
+import { CommonModule } from '@angular/common';
 
 
 type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError' | 'downloaded';
 
 @Component({
   selector: 'app-upload',
-  imports: [],
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: './upload.html',
   styleUrl: './upload.css',
 })

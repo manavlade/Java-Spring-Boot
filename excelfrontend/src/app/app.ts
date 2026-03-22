@@ -3,10 +3,11 @@ import { RouterOutlet } from '@angular/router';
 import { Dashboard } from './components/dashboard/dashboard';
 import { Upload } from './components/upload/upload';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { RouterLink } from '@angular/router';
 
 @Component({
   selector: 'app-root',
-  imports: [Upload, RouterOutlet, HlmButtonImports],
+  imports: [Upload, RouterOutlet, HlmButtonImports, RouterLink],
   templateUrl: './app.html',
   styleUrl: './app.css'
 })
