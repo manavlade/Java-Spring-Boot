@@ -26,21 +26,14 @@
 <div>
   <div class="flex space-x-4 mb-4 items-center justify-center py-4">
     @for (chart of chartTypes; track chart) {
-      <button 
-        (click)="activeChart = chart" 
-        [class.bg-blue-600]="activeChart === chart"
-        [class.text-white]="activeChart === chart"
-        class="border p-4 rounded-lg cursor-pointer capitalize"
-        >
-        {{ chart }} Chart
-      </button>
+    <button (click)="activeChart = chart" [class.bg-blue-600]="activeChart === chart"
+      [class.text-white]="activeChart === chart" class="border p-4 rounded-lg cursor-pointer capitalize">
+      {{ chart }} Chart
+    </button>
     }
   </div>
 
-  <app-echarts-graph 
-    [type]="activeChart" 
-    [ages]="ages" 
-    [salaries]="salaries">
+  <app-echarts-graph [type]="activeChart" [ages]="ages" [salaries]="salaries">
   </app-echarts-graph>
 </div>
 
