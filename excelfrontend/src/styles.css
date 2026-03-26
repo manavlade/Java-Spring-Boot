@@ -17,19 +17,29 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     padding: 10px;
+    box-sizing: border-box;
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
   }
 
   ::-webkit-scrollbar {
     width: 6px;
     height: 6px;
   }
+
   ::-webkit-scrollbar-track {
     background: #111118;
   }
+
   ::-webkit-scrollbar-thumb {
     background: #2a2a35;
     border-radius: 3px;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #3a3a48;
   }
@@ -38,6 +48,7 @@
 .font-mono {
   font-family: var(--font-mono) !important;
 }
+
 @import '@spartan-ng/brain/hlm-tailwind-preset.css';
 
 :root {
@@ -107,6 +118,7 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }

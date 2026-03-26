@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { HlmTabsImports } from "@spartan-ng/helm/tabs";
-import { Chart } from '../../services/chart';
+import { ChartService, SalaryChartResponseDTO } from '../../services/chart';
 import { EchartsGraph } from '../echarts-graph/echarts-graph';
 
 @Component({
@@ -15,13 +15,12 @@ export class Dashboard {
   chartTypes: ('line' | 'bar' | 'pie' | 'salary-range')[] = ['line', 'bar', 'pie', 'salary-range'];
 
   activeChart: 'line' | 'bar' | 'pie' | 'salary-range' = 'line';
-  ages: number[] = [];
-  salaries: number[] = [];
 
-  constructor(private readonly chartService: Chart) {
+  dashboardData?: SalaryChartResponseDTO;
+
+  constructor(private readonly chartService: ChartService) {
     this.chartService.getChartData().subscribe(data => {
-      this.ages = data.map(d => d.age);
-      this.salaries = data.map(d => d.salary);
+      this.dashboardData = data;
     });
   }
 }

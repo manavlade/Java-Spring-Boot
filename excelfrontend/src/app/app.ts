@@ -2,6 +2,7 @@ import { Component, signal } from '@angular/core';
 import { RouterLinkActive, RouterOutlet, RouterLink } from '@angular/router';
 import { Upload } from './components/upload/upload';
 import { HlmButtonImports } from '@spartan-ng/helm/button';
+import { Graphsnew } from './graphsnew/graphsnew';
 
 @Component({
   selector: 'app-root',
