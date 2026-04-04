@@ -1,0 +1,83 @@
+<div id="mainChart" class="w-full h-96 py-4"></div>
+
+<div class="mt-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+  <div class="flex items-center gap-2 pb-3 mb-4 border-b border-gray-200">
+    <span class="text-[11px] font-semibold text-gray-500 tracking-widest uppercase">
+      Data Summary
+    </span>
+  </div>
+
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm table-fixed border-collapse">
+
+      <thead>
+        <tr>
+          <th class="w-28 text-left text-[11px] font-semibold text-gray-500 uppercase tracking-wide pb-2 border-b border-gray-200">
+            Series
+          </th>
+          @for (month of months; track month) {
+            <th class="text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wide pb-2 border-b border-gray-200 px-2">
+              {{ month }}
+            </th>
+          }
+          <th class="text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wide pb-2 border-b border-gray-200 px-2">
+            Total
+          </th>
+          <th class="text-right text-[11px] font-semibold text-gray-500 uppercase tracking-wide pb-2 border-b border-gray-200 px-2">
+            Avg
+          </th>
+        </tr>
+      </thead>
+
+      <tbody>
+        @for (series of seriesData; track series.name) {
+          <tr class="group">
+
+            <td class="py-2.5 pr-2 border-b border-gray-100">
+              <div class="flex items-center gap-2">
+                <span
+                  class="w-2 h-2 rounded-full shrink-0"
+                  [style.background]="series.color">
+                </span>
+                <span class="font-medium text-gray-800">{{ series.name }}</span>
+              </div>
+            </td>
+
+            @for (value of series.data; track $index) {
+              <td
+                class="py-2.5 px-2 text-right border-b border-gray-100"
+                [class.text-emerald-600]="isPeak(value, series.data)"
+                [class.font-semibold]="isPeak(value, series.data)"
+                [class.text-red-600]="isLow(value, series.data)"
+                [class.text-gray-800]="!isPeak(value, series.data) && !isLow(value, series.data)">
+                {{ series.prefix }}{{ value }}
+              </td>
+            }
+
+            <td class="py-2.5 px-2 text-right border-b border-gray-100 font-medium text-gray-700">
+              {{ series.prefix }}{{ getTotal(series.data) }}
+            </td>
+
+            <!-- Avg -->
+            <td class="py-2.5 px-2 text-right border-b border-gray-100 font-medium text-gray-700">
+              {{ series.prefix }}{{ getAvg(series.data) }}
+            </td>
+
+          </tr>
+        }
+
+        <tr class="bg-gray-50">
+          <td class="py-2 pr-2 text-[12px] font-medium text-gray-500 rounded-l-md">
+            Peak month
+          </td>
+          <td colspan="6" class="py-2 px-2 text-[12px] text-gray-500 text-left">
+            {{ months[getPeakIndex(seriesData[0].data)] }} across both series
+          </td>
+          <td colspan="2" class="rounded-r-md"></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+</div>

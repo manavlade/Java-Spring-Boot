@@ -28,6 +28,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.Exception.ExcelValidationException;
 import com.example.demo.Exception.RowValidationException;
+import com.example.demo.config.EmployeeFieldConfig;
 import com.example.demo.models.EmployeeUpload;
 
 public class ExcelParser {
@@ -38,15 +39,14 @@ public class ExcelParser {
 
     private static final Logger logger = LoggerFactory.getLogger(ExcelParser.class);
 
-    private static final long MAX_FILE_SERVER = 5 * 1024 * 1024;
+    private static final long MAX_FILE_SERVER = 5L * 1024 * 1024;
 
     private static final long MAX_ROW_COUNT = 10000;
 
     private static final int MAX_TYPO_ALLOWED = 2;
 
-    private static final List<String> REQUIRED_COLUMNS = List.of("name", "email", "password", "age", "salary");
+    private static final List<String> REQUIRED_COLUMNS = EmployeeFieldConfig.getFieldName();
 
-    // ← ADD these 3 lines at class level alongside your other constants
     private static final Pattern SCRIPT_PATTERN = Pattern.compile("(?i)<script[^>]*>.*?</script>");
 
     private static final Pattern HTML_TAG_PATTERN = Pattern.compile("<[^>]*>");
@@ -58,26 +58,17 @@ public class ExcelParser {
         public final boolean isBlank;
         public final boolean isPassed;
         public final List<String> errors;
-        public final String name;
-        public final String email;
-        public final String password;
-        public final int age;
-        public final double salary;
-        public final boolean ageIsNumeric;
-        public final boolean salaryIsNumeric;
+        public final Map<String, String> stringValues;
+        public final Map<String, Object> numericValues;
 
-        public RowResult(int rowNum, boolean isBlank, String name, String email,
-                String password, int age, boolean ageIsNumeric,
-                double salary, boolean salaryIsNumeric, List<String> errors) {
+        public RowResult(int rowNum, boolean isBlank,
+                Map<String, String> stringValues,
+                Map<String, Object> numericValues,
+                List<String> errors) {
             this.rowNum = rowNum;
             this.isBlank = isBlank;
-            this.name = name;
-            this.email = email;
-            this.password = password;
-            this.age = age;
-            this.ageIsNumeric = ageIsNumeric;
-            this.salary = salary;
-            this.salaryIsNumeric = salaryIsNumeric;
+            this.stringValues = stringValues;
+            this.numericValues = numericValues;
             this.errors = errors;
             this.isPassed = !isBlank && errors.isEmpty();
         }
@@ -123,7 +114,31 @@ public class ExcelParser {
         return bestDistance <= MAX_TYPO_ALLOWED ? bestMatch : null;
     }
 
-    // @SuppressWarnings("unchecked")
+    private static void processHeaderCell(int position, String actualHeader,
+            Map<String, Integer> columnIndex,
+            Map<String, Boolean> found,
+            List<String> warnings) {
+
+        String matched = fuzzyMatch(actualHeader);
+
+        if (matched == null) {
+            logger.warn("Column {} — '{}' does not match any required column, ignoring",
+                    position + 1, actualHeader);
+            return;
+        }
+
+        columnIndex.put(matched, position);
+        found.put(matched, true);
+
+        if (!actualHeader.toLowerCase().equals(matched)) {
+            warnings.add("Column{}" + (position + 1) + " _ " + actualHeader // ← Bug 2 fixed
+                    + " was interpreted as " + matched);
+            logger.warn("Column {} - '{}' interpreted as '{}'", position + 1, actualHeader, matched);
+        } else {
+            logger.info("Column {} - '{}' matched exactly", position + 1, matched);
+        }
+    }
+
     private static Map<String, Object> buildColumnIndexMap(Row headerRow, DataFormatter formatter) {
         Map<String, Integer> columnsIndex = new LinkedHashMap<>();
         List<String> warnings = new ArrayList<>();
@@ -137,30 +152,15 @@ public class ExcelParser {
             int position = cell.getColumnIndex();
             String actualHeader = formatter.formatCellValue(cell).trim();
 
-            if (actualHeader.isBlank())
-                continue;
-
-            String matched = fuzzyMatch(actualHeader);
-
-            if (matched == null) {
-                logger.warn("Column {} — '{}' does not match any required column, ignoring",
-                        position + 1, actualHeader);
-                continue;
-            }
-
-            columnsIndex.put(matched, position);
-            found.put(matched, true);
-
-            if (!actualHeader.toLowerCase().equals(matched)) {
-                warnings.add("Column " + (position + 1) + " _ " + actualHeader + " was interpreted as " + matched + "");
-                logger.warn("Column {} -'{}' interpreted as '{}", position + 1, actualHeader, matched);
-            } else {
-                logger.info("Column {} - '{}' matched exactly", position + 1, matched);
-            }
+            // if row is blank we simply skip and move forward without adding any error
+            // because we will check for missing required columns at the end and report all
+            // together
+            if (!actualHeader.isBlank())
+                processHeaderCell(position, actualHeader, columnsIndex, found, warnings);
         }
 
         for (Map.Entry<String, Boolean> entry : found.entrySet()) {
-            if (!entry.getValue()) {
+            if (Boolean.FALSE.equals(entry.getValue())) {
                 errors.add("Column " + entry.getKey() + " is missing and could not be matched ");
             }
         }
@@ -173,11 +173,9 @@ public class ExcelParser {
         return result;
     }
 
-    // to check for security vulnerability like xss and sql injection in the future
-    // we can add more patterns to check for
     private static String sanitize(String input) {
         if (input == null || input.isBlank())
-            return input;
+            return "";
 
         if (input.indexOf('<') == -1
                 && input.indexOf('>') == -1
@@ -189,7 +187,6 @@ public class ExcelParser {
             return input;
         }
 
-        // ← now uses pre-compiled patterns instead of inline regex
         String cleaned = SCRIPT_PATTERN.matcher(input).replaceAll("");
         cleaned = HTML_TAG_PATTERN.matcher(cleaned).replaceAll("");
         cleaned = cleaned
@@ -207,7 +204,6 @@ public class ExcelParser {
         return cleaned;
     }
 
-    // basic level validation like file type and size and content type
     public static void validateFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new ExcelValidationException("Please upload a file. No file was received.");
@@ -240,67 +236,33 @@ public class ExcelParser {
 
     }
 
-    // level 2 to check if someone renamed pdf to xl and uploaded
     private static void validateMagicBytes(MultipartFile file) {
-        byte[] bytes = new byte[8];
 
         try (InputStream is = file.getInputStream()) {
-            is.read(bytes);
+            byte[] bytes = is.readNBytes(8);
 
-            // .xlsx magic bytes — starts with PK (50 4B 03 04) — it's a ZIP file internally
-            boolean isXlsx = bytes[0] == 0x50 && bytes[1] == 0x4B &&
-                    bytes[2] == 0x03 && bytes[3] == 0x04;
+            if (bytes.length < 4) {
+                throw new ExcelValidationException("File is too small to be a valid Excel format.");
+            }
 
-            // .xls magic bytes — D0 CF 11 E0
-            boolean isXls = bytes[0] == (byte) 0xD0 && bytes[1] == (byte) 0xCF &&
-                    bytes[2] == 0x11 && bytes[3] == (byte) 0xE0;
+            boolean isXlsx = (bytes[0] == 0x50 && bytes[1] == 0x4B &&
+                    bytes[2] == 0x03 && bytes[3] == 0x04);
+
+            boolean isXls = (bytes[0] == (byte) 0xD0 && bytes[1] == (byte) 0xCF &&
+                    bytes[2] == 0x11 && bytes[3] == (byte) 0xE0);
 
             if (!isXlsx && !isXls) {
                 throw new ExcelValidationException(
                         "File content is not a valid Excel format. " +
                                 "Renaming a file to .xlsx does not make it an Excel file.");
             }
+
         } catch (ExcelValidationException e) {
             throw e;
         } catch (Exception e) {
             throw new ExcelValidationException("Could not read file content: " + e.getMessage());
         }
     }
-
-    public static void validateFileRow(int displayRow, String name, String email,
-        String password, int age, boolean ageIsNumeric,
-        double salary, boolean salaryIsDouble, List<String> errors) {
-
-    if (name.isBlank()) {
-        errors.add("Row " + displayRow + " — Name is missing");
-    }
-
-    String emailRegex =
-        "^[a-zA-Z0-9_+&*-]+(?:\\.[a-zA-Z0-9_+&*-]+)*@(?:[a-zA-Z0-9-]+\\.)+[a-zA-Z]{2,7}$";
-    if (email.isBlank()) {
-        errors.add("Row " + displayRow + " — Email is missing");
-    } else if (!email.matches(emailRegex)) {
-        errors.add("Row " + displayRow + " — Invalid email format");
-    }
-
-    if (password.isBlank()) {
-        errors.add("Row " + displayRow + " — Password is missing");
-    } else if (password.length() < 8) {
-        errors.add("Row " + displayRow + " — Password must be at least 8 characters");
-    }
-
-    if (!ageIsNumeric) {
-        errors.add("Row " + displayRow + " — Age is not a number");
-    } else if (age <= 0 || age > 120) {
-        errors.add("Row " + displayRow + " — Age must be between 1 and 120");
-    }
-
-    if (!salaryIsDouble) {
-        errors.add("Row " + displayRow + " — Salary is not a number");
-    } else if (salary <= 0) {
-        errors.add("Row " + displayRow + " — Salary must be greater than 0");
-    }
-}
 
     @SuppressWarnings("unchecked")
     public static Map<String, Object> validateStruture(Workbook workbook, Sheet sheet) {
@@ -336,7 +298,6 @@ public class ExcelParser {
         return columnResult;
     }
 
-    // ← ADD this entire method — completely new
     private static List<RowResult> processRows(Sheet sheet,
             Map<String, Integer> columnIndex, DataFormatter formatter) {
 
@@ -346,83 +307,99 @@ public class ExcelParser {
 
         for (Row row : sheet) {
             if (row.getRowNum() == 0)
-                continue;
+                continue; 
 
             int displayNumber = row.getRowNum() + 1;
+            RowResult result = processSingleRow(row, columnIndex, formatter, displayNumber, seenEmails);
 
-            String name = sanitize(formatter.formatCellValue(row.getCell(columnIndex.get("name"))));
-            String email = sanitize(formatter.formatCellValue(row.getCell(columnIndex.get("email"))));
-            String password = sanitize(formatter.formatCellValue(row.getCell(columnIndex.get("password"))));
-            String ageRaw = formatter.formatCellValue(row.getCell(columnIndex.get("age")));
-            String salRaw = formatter.formatCellValue(row.getCell(columnIndex.get("salary")));
-
-            // blank row
-            if (name.isBlank() && email.isBlank() && password.isBlank()
-                    && ageRaw.isBlank() && salRaw.isBlank()) {
-                results.add(new RowResult(displayNumber, true, "", "", "",
-                        0, false, 0, false, new ArrayList<>()));
-                continue;
-            }
-
-            dataRowCount++;
-            if (dataRowCount > MAX_ROW_COUNT) {
-                throw new ExcelValidationException(
-                        "File exceeds the maximum allowed limit of 10,000 data rows.");
-            }
-
-            // parse age
-            int age = 0;
-            boolean ageIsNumeric = false;
-            Cell ageCell = row.getCell(columnIndex.get("age"));
-            if (ageCell != null && ageCell.getCellType() == CellType.NUMERIC) {
-                age = (int) ageCell.getNumericCellValue();
-                ageIsNumeric = true;
-            }
-
-            // parse salary
-            double salary = 0;
-            boolean salaryIsDouble = false;
-            Cell salCell = row.getCell(columnIndex.get("salary"));
-            if (salCell != null && salCell.getCellType() == CellType.NUMERIC) {
-                salary = salCell.getNumericCellValue();
-                salaryIsDouble = true;
-            }
-
-            List<String> rowErrors = new ArrayList<>();
-
-            validateFileRow(displayNumber, name, email, password,
-                    age, ageIsNumeric, salary, salaryIsDouble, rowErrors);
-
-            // within-file duplicate check
-            if (rowErrors.isEmpty()) {
-                String emailLower = email.toLowerCase();
-                if (seenEmails.contains(emailLower)) {
-                    rowErrors.add("Row " + displayNumber
-                            + " — Duplicate email '" + email
-                            + "' already exists in this file");
-                } else {
-                    seenEmails.add(emailLower);
+            if (!result.isBlank) {
+                dataRowCount++;
+                if (dataRowCount > MAX_ROW_COUNT) {
+                    throw new ExcelValidationException(
+                            "File exceeds the maximum allowed limit of 10,000 data rows.");
                 }
             }
-
-            results.add(new RowResult(displayNumber, false, name, email, password,
-                    age, ageIsNumeric, salary, salaryIsDouble, rowErrors));
+            results.add(result);
         }
-
         return results;
     }
 
-    // ← ADD this entire method — completely new
+    private static RowResult processSingleRow(Row row, Map<String, Integer> columnIndex,
+            DataFormatter formatter, int displayNumber, Set<String> seenEmails) {
+
+        Map<String, String> stringValues = new LinkedHashMap<>();
+        Map<String, Object> numericValues = new LinkedHashMap<>();
+
+        for (EmployeeFieldConfig.FieldDef field : EmployeeFieldConfig.FIELDS) {
+            String fieldName = field.employeeName();
+            Cell cell = row.getCell(columnIndex.get(fieldName));
+            String raw = formatter.formatCellValue(cell).trim();
+
+            if (field.type() == EmployeeFieldConfig.FieldType.STRING) {
+                stringValues.put(fieldName, sanitize(raw));
+            } else {
+                stringValues.put(fieldName, raw);
+                if (cell != null && (cell.getCellType() == CellType.NUMERIC || cell.getCellType() == CellType.FORMULA)) {
+                    // numerical or formula cell
+                    numericValues.put(fieldName, cell.getNumericCellValue());
+                    numericValues.put(fieldName + "_isNumeric", true);
+                } else {
+                    // Try to parse text numbers (e.g. from pasted strings)
+                    String normalized = raw.replaceAll("[\\s,]", "");
+                    try {
+                        double parsedValue = Double.parseDouble(normalized);
+                        numericValues.put(fieldName, parsedValue);
+                        numericValues.put(fieldName + "_isNumeric", true);
+                    } catch (NumberFormatException e) {
+                        numericValues.put(fieldName, 0.0);
+                        numericValues.put(fieldName + "_isNumeric", false);
+                    }
+                }
+            }
+        }
+
+        boolean isBlankRow = stringValues.values().stream().allMatch(String::isBlank);
+        if (isBlankRow) {
+            return new RowResult(displayNumber, true,
+                    new LinkedHashMap<>(), new LinkedHashMap<>(), new ArrayList<>());
+        }
+
+        List<String> rowErrors = new ArrayList<>();
+        EmployeeFieldConfig.validate(displayNumber, stringValues, numericValues, rowErrors);
+
+        checkDuplicateEmail(displayNumber,
+                stringValues.getOrDefault("email", ""), seenEmails, rowErrors);
+
+        return new RowResult(displayNumber, false, stringValues, numericValues, rowErrors);
+    }
+    private static void checkDuplicateEmail(int displayNumber, String email,
+            Set<String> seenEmails, List<String> rowErrors) {
+        if (!rowErrors.isEmpty()) {
+            return;
+        }
+
+        if (email == null || email.isBlank()) {
+            return;
+        }
+
+        String emailLower = email.toLowerCase();
+        if (seenEmails.contains(emailLower)) {
+            rowErrors.add("Row " + displayNumber
+                    + " — Duplicate email '" + email
+                    + "' already exists in this file");
+        } else {
+            seenEmails.add(emailLower);
+        }
+    }
+
     @SuppressWarnings("unchecked")
     public static byte[] generateReport(MultipartFile file) {
 
         validateFile(file);
-        
 
         try (Workbook inputWorkbook = WorkbookFactory.create(file.getInputStream())) {
 
-            Sheet inputSheet = inputWorkbook.getSheetAt(0); 
-
+            Sheet inputSheet = inputWorkbook.getSheetAt(0);
             Map<String, Object> structureResult = validateStruture(inputWorkbook, inputSheet);
             Map<String, Integer> columnIndex = (Map<String, Integer>) structureResult.get("columnIndexMap");
             List<String> warnings = (List<String>) structureResult.get("warnings");
@@ -430,71 +407,56 @@ public class ExcelParser {
             DataFormatter formatter = new DataFormatter();
             List<RowResult> rowResults = processRows(inputSheet, columnIndex, formatter);
 
-            // build output workbook
             Workbook outWorkbook = new XSSFWorkbook();
             Sheet outSheet = outWorkbook.createSheet("Upload Report");
 
-            // header style — dark blue
-            CellStyle headerStyle = outWorkbook.createCellStyle();
-            headerStyle.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
-            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-            Font headerFont = outWorkbook.createFont();
-            headerFont.setColor(IndexedColors.WHITE.getIndex());
-            headerFont.setBold(true);
-            headerStyle.setFont(headerFont);
+            CellStyle headerStyle = buildHeaderStyle(outWorkbook);
+            CellStyle passStyle = buildColorStyle(outWorkbook, IndexedColors.LIGHT_GREEN);
+            CellStyle failStyle = buildColorStyle(outWorkbook, IndexedColors.ROSE);
 
-            // pass style — light green
-            CellStyle passStyle = outWorkbook.createCellStyle();
-            passStyle.setFillForegroundColor(IndexedColors.LIGHT_GREEN.getIndex());
-            passStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            // headers built from config — not hardcoded
+            List<String> dataHeaders = new ArrayList<>(EmployeeFieldConfig.getFieldName());
+            dataHeaders.add("Status");
+            dataHeaders.add("Error Message");
+            String[] headers = dataHeaders.toArray(String[]::new);
 
-            // fail style — rose/red
-            CellStyle failStyle = outWorkbook.createCellStyle();
-            failStyle.setFillForegroundColor(IndexedColors.ROSE.getIndex());
-            failStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
-
-            // header row
             Row headerRow = outSheet.createRow(0);
-            String[] headers = { "name", "email", "password", "age", "salary",
-                    "Status", "Error Message" };
             for (int i = 0; i < headers.length; i++) {
                 Cell cell = headerRow.createCell(i);
                 cell.setCellValue(headers[i]);
                 cell.setCellStyle(headerStyle);
-                outSheet.setColumnWidth(i, i >= 5 ? 8000 : 5000);
+                outSheet.setColumnWidth(i, i >= headers.length - 2 ? 8000 : 5000);
             }
 
-            // data rows
+            // cell writing loops through config — not hardcoded
             int outputRow = 1;
             for (RowResult result : rowResults) {
                 if (result.isBlank)
                     continue;
 
                 Row row = outSheet.createRow(outputRow++);
+                int colIdx = 0;
 
-                row.createCell(0).setCellValue(result.name);
-                row.createCell(1).setCellValue(result.email);
-                row.createCell(2).setCellValue(result.password);
-
-                if (result.ageIsNumeric) {
-                    row.createCell(3).setCellValue(result.age);
-                } else {
-                    row.createCell(3).setCellValue("");
+                for (EmployeeFieldConfig.FieldDef field : EmployeeFieldConfig.FIELDS) {
+                    Cell cell = row.createCell(colIdx++);
+                    if (field.type() == EmployeeFieldConfig.FieldType.STRING) {
+                        cell.setCellValue(result.stringValues.getOrDefault(field.employeeName(), ""));
+                    } else {
+                        boolean isNumeric = Boolean.TRUE.equals(
+                                result.numericValues.get(field.employeeName() + "_isNumeric"));
+                        if (isNumeric) {
+                            cell.setCellValue((double) result.numericValues.get(field.employeeName()));
+                        } else {
+                            cell.setCellValue("");
+                        }
+                    }
                 }
 
-                if (result.salaryIsNumeric) {
-                    row.createCell(4).setCellValue(result.salary);
-                } else {
-                    row.createCell(4).setCellValue("");
-                }
-
-                // Status column
-                Cell statusCell = row.createCell(5);
+                Cell statusCell = row.createCell(colIdx++);
                 statusCell.setCellValue(result.isPassed ? "PASS" : "FAIL");
                 statusCell.setCellStyle(result.isPassed ? passStyle : failStyle);
 
-                // Error Message column
-                Cell errorCell = row.createCell(6);
+                Cell errorCell = row.createCell(colIdx);
                 if (result.isPassed) {
                     errorCell.setCellValue("");
                 } else {
@@ -507,7 +469,6 @@ public class ExcelParser {
                 }
             }
 
-            // warnings sheet if any
             if (!warnings.isEmpty()) {
                 Sheet warnSheet = outWorkbook.createSheet("Header Warnings");
                 Row warnHeader = warnSheet.createRow(0);
@@ -519,7 +480,6 @@ public class ExcelParser {
                 }
             }
 
-            // write to bytes
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             outWorkbook.write(baos);
             outWorkbook.close();
@@ -533,73 +493,91 @@ public class ExcelParser {
         } catch (ExcelValidationException e) {
             throw e;
         } catch (Exception e) {
-            logger.error("Report generation failed: {}", e.getMessage(), e);
-            throw new ExcelValidationException("Report generation failed: " + e.getMessage());
+            throw new ExcelValidationException("Report generation failed: " + e.getMessage(), e);
         }
     }
 
-   @SuppressWarnings("unchecked")
-public static Map<String, Object> excelParser(MultipartFile file) {
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> excelParser(MultipartFile file) {
 
-    validateFile(file);
+        validateFile(file);
 
-    List<EmployeeUpload> employees = new ArrayList<>();
-    DataFormatter formatter = new DataFormatter();       // ← only ONE formatter
-    List<String> allErrors = new ArrayList<>();
-    List<String> warnings = new ArrayList<>();
+        List<EmployeeUpload> employees = new ArrayList<>();
+        DataFormatter formatter = new DataFormatter();
+        List<String> allErrors = new ArrayList<>();
+        List<String> warnings = new ArrayList<>();
 
-    try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
-        Sheet sheet = workbook.getSheetAt(0);
+        try (Workbook workbook = WorkbookFactory.create(file.getInputStream())) {
+            Sheet sheet = workbook.getSheetAt(0);
 
-        // ← Fix 3: typo fixed validateStruture → validateStructure
-        Map<String, Object> structureResult = validateStruture(workbook, sheet);
-        warnings = (List<String>) structureResult.get("warnings");
-        Map<String, Integer> columnIndex =
-                (Map<String, Integer>) structureResult.get("columnIndexMap");
+            Map<String, Object> structureResult = validateStruture(workbook, sheet);
+            warnings = (List<String>) structureResult.get("warnings");
+            Map<String, Integer> columnIndex = (Map<String, Integer>) structureResult.get("columnIndexMap");
 
-        logger.info("Reading Excel File: {}", file.getOriginalFilename());
+            logger.info("Reading Excel File: {}", file.getOriginalFilename());
 
-        // ← Fix 1: actually USE processRows result — old loop completely removed
-        List<RowResult> results = processRows(sheet, columnIndex, formatter);
+            List<RowResult> results = processRows(sheet, columnIndex, formatter);
 
-        for (RowResult result : results) {
-            if (result.isBlank) continue;
+            for (RowResult result : results) {
+                if (result.isBlank)
+                    continue;
 
-            if (!result.errors.isEmpty()) {
-                allErrors.addAll(result.errors);
-                continue;
+                if (!result.errors.isEmpty()) {
+                    allErrors.addAll(result.errors);
+                    continue;
+                }
+
+                EmployeeUpload emp = new EmployeeUpload();
+                emp.setName(result.stringValues.get("name"));
+                emp.setEmail(result.stringValues.get("email"));
+                emp.setPassword(result.stringValues.get("password"));
+                emp.setAge((int) (double) result.numericValues.get("age"));
+                emp.setSalary((double) result.numericValues.get("salary"));
+                employees.add(emp);
+
+                logger.info("Row {} → name: {}, email: {}, age: {}, salary: {}",
+                        result.rowNum,
+                        result.stringValues.get("name"),
+                        result.stringValues.get("email"),
+                        result.numericValues.get("age"),
+                        result.numericValues.get("salary"));
             }
 
-            EmployeeUpload emp = new EmployeeUpload();
-            emp.setName(result.name);
-            emp.setEmail(result.email);
-            emp.setPassword(result.password);
-            emp.setAge(result.age);
-            emp.setSalary(result.salary);
-            employees.add(emp);
+            logger.info("Upload complete — valid rows: {}", employees.size());
 
-            logger.info("Row {} → name: {}, email: {}, age: {}, salary: {}",
-                    result.rowNum, result.name, result.email, result.age, result.salary);
+        } catch (ExcelValidationException | RowValidationException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new ExcelValidationException("Excel parsing failed: " + e.getMessage(), e);
         }
 
-        logger.info("Upload complete — valid rows: {}", employees.size());
+        if (!allErrors.isEmpty()) {
+            logger.warn("Validation errors found: {}", allErrors.size());
+            throw new RowValidationException(allErrors);
+        }
 
-    } catch (ExcelValidationException | RowValidationException e) {
-        throw e;
-    } catch (Exception e) {
-        logger.error("Excel parsing failed: {}", e.getMessage(), e);
-        throw new ExcelValidationException("Excel parsing failed: " + e.getMessage());
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("employees", employees);
+        result.put("warnings", warnings);
+        return result;
     }
 
-    if (!allErrors.isEmpty()) {
-        logger.warn("Validation errors found: {}", allErrors.size());
-        throw new RowValidationException(allErrors);
+    private static CellStyle buildHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(IndexedColors.DARK_BLUE.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        Font font = workbook.createFont();
+        font.setColor(IndexedColors.WHITE.getIndex());
+        font.setBold(true);
+        style.setFont(font);
+        return style;
     }
 
-    Map<String, Object> result = new LinkedHashMap<>();
-    result.put("employees", employees);
-    result.put("warnings", warnings);
-    return result;
-}
+    private static CellStyle buildColorStyle(Workbook workbook, IndexedColors color) {
+        CellStyle style = workbook.createCellStyle();
+        style.setFillForegroundColor(color.getIndex());
+        style.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+        return style;
+    }
 
 }

@@ -1,6 +1,5 @@
 package com.example.demo.controller;
 
-import java.util.List;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -19,7 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.example.demo.Exception.ExcelValidationException;
 import com.example.demo.Exception.RowValidationException;
-import com.example.demo.dto.EmployeeSalAgeTO;
+import com.example.demo.dto.SalaryChartResponseDTO;
 import com.example.demo.parser.ExcelParser;
 import com.example.demo.service.EmployeeUploadService;
 
@@ -90,7 +89,8 @@ public class EmployeeUploadController {
     }
 
     @GetMapping("/ChartData")
-    public ResponseEntity<List<EmployeeSalAgeTO>> getChartData() {
+    public ResponseEntity<SalaryChartResponseDTO> getChartData() {
         return ResponseEntity.ok(employeeUploadService.getChartData());
     }
+    
 }

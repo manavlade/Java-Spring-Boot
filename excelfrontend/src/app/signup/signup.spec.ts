@@ -1,19 +1,19 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 
-import { ErrorTable } from './error-table';
+import { Signup } from './signup';
 
-describe('ErrorTable', () => {
-  let component: ErrorTable;
-  let fixture: ComponentFixture<ErrorTable>;
+describe('Signup', () => {
+  let component: Signup;
+  let fixture: ComponentFixture<Signup>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [ErrorTable],
+      imports: [Signup],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(ErrorTable);
+    fixture = TestBed.createComponent(Signup);
     component = fixture.componentInstance;
-    await fixture.whenStable();
+    fixture.detectChanges();
   });
 
   it('should create', () => {

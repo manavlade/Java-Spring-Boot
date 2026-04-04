@@ -3,13 +3,15 @@ import { RowErrorResponse, UploadResponse } from '../../models/upload-response.m
 import { FileUpload } from '../../services/file-upload';
 import { HttpErrorResponse } from '@angular/common/http';
 import { HotToastService } from '@ngxpert/hot-toast';
+import { CommonModule } from '@angular/common';
 
 
-type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError' | 'downloaded';
+type UploadState = `idle` | 'uploading' | 'success' | 'rowErrors' | 'FileError' | 'downloaded' | 'saving';
 
 @Component({
   selector: 'app-upload',
-  imports: [],
+  standalone: true,
+  imports: [CommonModule],
   templateUrl: './upload.html',
   styleUrl: './upload.css',
 })
@@ -51,14 +53,12 @@ export class Upload {
     event.preventDefault();
     this.isDragOver = false;
     const file = event.dataTransfer?.files[0];
-
     if (file) this.handleFileSelect(file);
   }
 
   onFileChange(event: Event): void {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-
     if (file) this.handleFileSelect(file);
   }
 
@@ -103,74 +103,53 @@ export class Upload {
     }
   }
 
-  upload(): void {
+   upload(): void {
     if (!this.selectedFile) return;
     this.state = 'uploading';
 
-    this.toast.loading('Uploading file...', {
-      id: 'upload-toast'
-    });
+    this.toast.loading('Generating report...', { id: 'upload-toast' });
 
     this.uploadService.uploadFile(this.selectedFile).subscribe({
       next: (blob: Blob) => {
         const originalName = this.selectedFile!.name.replace(/\.(xlsx|xls)$/i, '');
-        const reportName = `${originalName}_report.xlsx`;
         this.reportBlob = blob;
-        this.downloadedFileName = reportName;
+        this.downloadedFileName = `${originalName}_report.xlsx`;
         this.state = 'downloaded';
-        console.log('API success hit');
         this.toast.close('upload-toast');
-        this.toast.success('Report ready! Click the button to download.');
+        this.toast.success('Report ready! Review it and confirm to save.');
+      },
+      error: (err: HttpErrorResponse) => this.handleUploadError(err)
+    });
+  }
+
+  // ── Step 2: calls /upload → saves to DB ────────────────────────────────────
+  confirmAndSave(): void {
+    if (!this.selectedFile) return;
+    this.state = 'saving';
+
+    this.toast.loading('Saving to database...', { id: 'save-toast' });
+
+    this.uploadService.saveFile(this.selectedFile).subscribe({
+      next: (response: UploadResponse) => {
+        this.successResponse = response;
+        this.state = 'success';
+        this.toast.close('save-toast');
+        this.toast.success(
+          `Saved! ${response.totalInserted} inserted, ${response.totalUpdated} updated.`
+        );
       },
       error: (err: HttpErrorResponse) => {
-        if (err.error instanceof Blob) {
-          const reader = new FileReader();
-          reader.onload = () => {
-            try {
-              const json = JSON.parse(reader.result as string);
-              this.toast.error(json.error ?? 'Upload failed. Please check your file.', {
-                id: 'upload-toast'
-              });
-              this.fileErrorResponse = json.error ?? 'Upload failed. Please check your file.';
-            } catch {
-              this.toast.error(this.fileErrorResponse || 'Upload failed. Please check your file.', {
-                id: 'upload-toast'
-              });
-            }
-            this.state = 'FileError';
-          };
-          reader.readAsText(err.error);
-        } else if (err.status === 413) {
-          this.fileErrorResponse = 'File too large. Max allowed size is 5MB.';
-          this.toast.error('File too large. Max allowed size is 5MB.', {
-            id: 'upload-toast'
-          });
-          this.state = 'FileError';
-        } else if (err.status === 0) {
-          this.fileErrorResponse = 'Cannot reach the server. Make sure Spring Boot is running on port 8080.';
-          this.toast.error('Cannot reach the server. Make sure Spring Boot is running on port 8080.', {
-            id: 'upload-toast'
-          });
-          this.state = 'FileError';
-        } else {
-          this.fileErrorResponse = 'Something went wrong. Please try again.';
-          this.toast.error('Something went wrong. Please try again.', {
-            id: 'upload-toast'
-          });
-          this.state = 'FileError';
-        }
+        this.state = 'downloaded'; // go back to downloaded state so user can retry
+        this.toast.close('save-toast');
+        this.toast.error(err.error?.message ?? 'Save failed. Please try again.');
       }
     });
   }
 
   downloadReport(): void {
     if (!this.reportBlob || !this.downloadedFileName) return;
-
     this.triggerDownload(this.reportBlob, this.downloadedFileName);
-
-    this.toast.success('Download started!!', {
-      id: 'download-toast'
-    });
+    this.toast.success('Download started!', { id: 'download-toast' });
   }
 
   private triggerDownload(blob: Blob, filename: string): void {
@@ -182,6 +161,35 @@ export class Upload {
     window.URL.revokeObjectURL(url);
   }
 
+  private handleUploadError(err: HttpErrorResponse): void {
+    if (err.error instanceof Blob) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const json = JSON.parse(reader.result as string);
+          this.fileErrorResponse = json.error ?? 'Upload failed. Please check your file.';
+        } catch {
+          this.fileErrorResponse = 'Upload failed. Please check your file.';
+        }
+        this.toast.error(this.fileErrorResponse!, { id: 'upload-toast' });
+        this.state = 'FileError';
+      };
+      reader.readAsText(err.error);
+    } else if (err.status === 413) {
+      this.fileErrorResponse = 'File too large. Max allowed size is 5MB.';
+      this.toast.error(this.fileErrorResponse, { id: 'upload-toast' });
+      this.state = 'FileError';
+    } else if (err.status === 0) {
+      this.fileErrorResponse = 'Cannot reach the server. Make sure Spring Boot is running on port 8080.';
+      this.toast.error(this.fileErrorResponse, { id: 'upload-toast' });
+      this.state = 'FileError';
+    } else {
+      this.fileErrorResponse = 'Something went wrong. Please try again.';
+      this.toast.error(this.fileErrorResponse, { id: 'upload-toast' });
+      this.state = 'FileError';
+    }
+  }
+
   reset(): void {
     this.state = 'idle';
     this.selectedFile = null;
@@ -191,7 +199,6 @@ export class Upload {
     this.fileErrorResponse = null;
     this.reportBlob = null;
     this.downloadedFileName = null;
-
     if (this.fileInputRef) {
       this.fileInputRef.nativeElement.value = '';
     }

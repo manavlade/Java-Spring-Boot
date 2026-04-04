@@ -1,1 +1,30 @@
+<div class="flex justify-between items-center p-4 border-b">
+    <div>
+        <h1 class="font-bold text-3xl">ExcelFront</h1>
+    </div>
+    <div>
+        <ul class="flex text-xl gap-4 items-center cursor-pointer">
+            <li>
+                <a routerLink="/" routerLinkActive="underline decoration-2 underline-offset-4"
+                    [routerLinkActiveOptions]="{exact: true}">Home</a>
+            </li>
+            <li>
+                <a routerLink="/about" routerLinkActive="underline decoration-2 underline-offset-4">About</a>
+            </li>
+            <li>
+                <a routerLink="/upload" routerLinkActive="underline decoration-2 underline-offset-4">Upload</a>
+            </li>
+            <li>
+                <a routerLink="/dashboard" routerLinkActive="underline decoration-2 underline-offset-4">Dashboard</a>
+            </li>
+        </ul>
+
+    </div>
+    <div class="flex gap-4 items-center">
+        <button >Sign In</button>
+        <button >Sign Up</button>
+        <button (click)="downloadPDF()" >PDF Download </button>
+    </div>
+</div>
+
 <router-outlet />

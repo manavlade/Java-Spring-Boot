@@ -1,8 +1,9 @@
 import { Component } from '@angular/core';
+import { Grapht } from '../../grapht/grapht';
 
 @Component({
   selector: 'app-home',
-  imports: [],
+  imports: [Grapht],
   templateUrl: './home.html',
   styleUrl: './home.css',
 })
