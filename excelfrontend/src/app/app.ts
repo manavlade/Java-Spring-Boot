@@ -1,6 +1,7 @@
-import { Component, PLATFORM_ID, inject } from '@angular/core';
-import { isPlatformBrowser } from '@angular/common';
+import { Component } from '@angular/core';
 import { RouterLinkActive, RouterOutlet, RouterLink } from '@angular/router';
+import html2canvas from 'html2canvas-pro';
+import { jsPDF } from 'jspdf';
 
 @Component({
   selector: 'app-root',
@@ -14,182 +15,133 @@ import { RouterLinkActive, RouterOutlet, RouterLink } from '@angular/router';
 })
 export class App {
 
-  private readonly platformId = inject(PLATFORM_ID);
 
-  async downloadPDF() {
-    if (!isPlatformBrowser(this.platformId)) return;
-
+  async handleDownload() {
     const element = document.getElementById('home');
     if (!element) return;
 
-    const clone = element.cloneNode(true) as HTMLElement;
-    Object.assign(clone.style, {
-      position: 'fixed',
-      top: '0',
-      left: '-9999px',
-      width: element.offsetWidth + 'px',
-      zIndex: '-1',
-      pointerEvents: 'none',
-    });
-    document.body.appendChild(clone);
-
-    const allElements = Array.from(clone.querySelectorAll<HTMLElement>('*'));
-    allElements.forEach((el) => {
-      if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'checkbox') {
-        el.style.display = 'none';
-        return;
-      }
-      const computed = globalThis.getComputedStyle(el);
-      const isHidden =
-        computed.display === 'none' ||
-        computed.visibility === 'hidden' ||
-        computed.opacity === '0' ||
-        (Number.parseFloat(computed.maxHeight) === 0 && computed.overflow === 'hidden') ||
-        (Number.parseFloat(computed.height) === 0 && computed.overflow === 'hidden');
-
-      if (isHidden) {
-        el.style.display = computed.display === 'none' ? 'block' : computed.display;
-        el.style.visibility = 'visible';
-        el.style.opacity = '1';
-        el.style.maxHeight = 'none';
-        el.style.height = 'auto';
-        el.style.overflow = 'visible';
-      }
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
     });
 
-    const originalCanvases = Array.from(element.querySelectorAll<HTMLCanvasElement>('canvas'));
-    const clonedCanvases = Array.from(clone.querySelectorAll<HTMLCanvasElement>('canvas'));
+    const MARGIN = 10;g
+    const HEADER_MM = 12;
+    const FOOTER_MM = 10;
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const contentWidth = pageWidth - MARGIN * 2;
 
-    originalCanvases.forEach((original, i) => {
-      const cloned = clonedCanvases[i];
-      if (!cloned) return;
+    const headerEl = element.querySelector<HTMLElement>('.pdf-header');
+    const footerEl = element.querySelector<HTMLElement>('.pdf-footer');
 
-      cloned.width = original.width;
-      cloned.height = original.height;
+    if (headerEl) headerEl.style.display = 'flex';
+    if (footerEl) footerEl.style.display = 'flex';
 
-      const ctx = cloned.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(original, 0, 0);
+    const headerCanvas = headerEl
+      ? await html2canvas(headerEl, { scale: 2, useCORS: true, logging: false })
+      : null;
+
+    const footerCanvas = footerEl
+      ? await html2canvas(footerEl, { scale: 2, useCORS: true, logging: false })
+      : null;
+
+    if (headerEl) headerEl.style.display = 'none';
+    if (footerEl) footerEl.style.display = 'none';
+
+    const headerImgData = headerCanvas?.toDataURL('image/png') ?? null;
+    const footerImgData = footerCanvas?.toDataURL('image/png') ?? null;
+
+    const drawHeaderFooter = () => {
+      if (headerImgData) {
+        pdf.addImage(headerImgData, 'PNG', MARGIN, MARGIN, contentWidth, HEADER_MM);
       }
-    });
-    await new Promise((r) => requestAnimationFrame(r));
-    await new Promise((r) => requestAnimationFrame(r));
-
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import('html2canvas-pro'),
-      import('jspdf'),
-    ]);
-
-    const { getInstanceByDom } = await import('echarts');
-    const chartEl = document.getElementById('mainChart');
-    const chartInstance = chartEl ? getInstanceByDom(chartEl) : null;
-
-    if (chartInstance) {
-      chartInstance.dispatchAction({ type: 'showTip', seriesIndex: 0, dataIndex: 2 });
-      await new Promise((r) => setTimeout(r, 300));
-
-      originalCanvases.forEach((original, i) => {
-        const cloned = clonedCanvases[i];
-        if (!cloned) return;
-        cloned.width = original.width;
-        cloned.height = original.height;
-        const ctx = cloned.getContext('2d');
-        if (ctx) ctx.drawImage(original, 0, 0);
-      });
-    }
-
-    const canvas = await html2canvas(clone, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      onclone: (clonedDoc) => {
-        const tooltips = clonedDoc.querySelectorAll<HTMLElement>('.echarts-tooltip');
-        tooltips.forEach((tooltip) => {
-          tooltip.style.transition = 'none';
-          tooltip.style.opacity = '1';
-          tooltip.style.visibility = 'visible';
-          tooltip.style.display = 'block';
-        });
+      if (footerImgData) {
+        pdf.addImage(footerImgData, 'PNG', MARGIN, pageHeight - MARGIN - FOOTER_MM, contentWidth, FOOTER_MM);
       }
-    });
+    };
 
-    if (chartInstance) {
-      chartInstance.dispatchAction({ type: 'hideTip' });
-    }
+    const contentStartY = MARGIN + HEADER_MM + 2;
+    const contentEndY = pageHeight - MARGIN - FOOTER_MM - 2;
+    const availableHeight = contentEndY - contentStartY;
 
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-    const headerHeight = 10;
-    let pageNumber = 1;
-    const pageWidthMm = pdf.internal.pageSize.getWidth();
-    const pageHeightMm = pdf.internal.pageSize.getHeight();
-    const margin = 10;
-    const contentWidth = pageWidthMm - margin * 2;
-
-    const contentHeightMm = pageHeightMm - margin * 2 - headerHeight;
-    const domScale = canvas.width / clone.offsetWidth;
-    const pageHeightPx = contentHeightMm * (canvas.width / contentWidth);
-    const children = Array.from(
-
-      clone.querySelectorAll<HTMLElement>('section, article, .report-section')
+    const sections = element.querySelectorAll<HTMLElement>(
+      'section, article, .report-section'
     );
 
-    const safeBreakPoints = new Set<number>();
-    children.forEach((el) => {
-      const bottom = (el.offsetTop + el.offsetHeight) * domScale;
-      if (el.offsetHeight > 0) {
-        safeBreakPoints.add(Math.round(bottom));
-      }
-    });
+    let currentY = contentStartY;
 
-    const sortedBreaks = Array.from(safeBreakPoints).sort((a, b) => a - b);
+    drawHeaderFooter();
 
-    document.body.removeChild(clone);
+    for (const section of Array.from(sections)) {
 
-    let currentYpx = 0;
+      section.querySelectorAll<HTMLElement>('*').forEach(el => {
 
-    while (currentYpx < canvas.height) {
-      let sliceBottomPx = currentYpx + pageHeightPx;
+        if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'checkbox') {
+          el.style.display = 'none';
+          return;
+        }
 
-      const safeBreak = sortedBreaks
-        .filter((b) => b > currentYpx && b <= sliceBottomPx)
-        .pop();
-
-      if (safeBreak) sliceBottomPx = safeBreak;
-
-      sliceBottomPx = Math.min(sliceBottomPx, canvas.height);
-
-      const sliceHeightPx = sliceBottomPx - currentYpx;
-      const sliceHeightMm = (sliceHeightPx * contentWidth) / canvas.width;
-
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceHeightPx;
-
-      const ctx = sliceCanvas.getContext('2d')!;
-      ctx.drawImage(canvas, 0, currentYpx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
-
-      const sliceData = sliceCanvas.toDataURL('image/jpeg', 0.98);
-      pdf.setFontSize(5);
-      pdf.setTextColor(0);
-      pdf.text('ExcelFlow Report', margin, margin);
-      pdf.text('Generated Report', pageWidthMm - margin, margin, { align: 'right' });
-
-      pdf.addImage(sliceData, 'JPEG', margin, margin + headerHeight, contentWidth, sliceHeightMm);
-      const footerY = pageHeightMm - 5;
-      pdf.setFontSize(5);
-      pdf.setTextColor('#999');
-      pdf.text('© 2026 ExcelFlow. All rights   reserved.', margin, footerY);
-      pdf.text('Privacy Terms', pageWidthMm - margin, footerY, {
-        align: 'right'
+        const computed = globalThis.getComputedStyle(el);
+        const isHidden =
+          computed.display === 'none' ||
+          computed.visibility === 'hidden' ||
+          computed.opacity === '0' ||
+          (Number.parseFloat(computed.maxHeight) === 0 && computed.overflow === 'hidden') ||
+          (Number.parseFloat(computed.height) === 0 && computed.overflow === 'hidden');
+        if (isHidden) {
+          el.style.display = computed.display === 'none' ? 'block' : computed.display;
+          el.style.visibility = 'visible';
+          el.style.opacity = '1';
+          el.style.maxHeight = 'none';
+          el.style.height = 'auto';
+          el.style.overflow = 'visible';
+        }
       });
-      pdf.text(`Page ${pageNumber}`, pageWidthMm / 2, footerY, { align: 'center' });
 
-      currentYpx = sliceBottomPx;
-      if (currentYpx < canvas.height) {
+      const canvas = await html2canvas(section, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      });
+
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = contentWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      const spaceLeft = contentEndY - currentY;
+
+      if (currentY > contentStartY && imgHeight > spaceLeft) {
         pdf.addPage();
-        pageNumber++;
+        drawHeaderFooter();
+        currentY = contentStartY;
+      }
+
+      pdf.addImage(imgData, 'PNG', MARGIN, currentY, imgWidth, imgHeight);
+      currentY += imgHeight + MARGIN;
+
+      if (imgHeight > availableHeight) {
+        let remainingHeight = imgHeight - availableHeight;
+        let offsetY = availableHeight;
+
+        while (remainingHeight > 0) {
+          pdf.addPage();
+          drawHeaderFooter();
+          pdf.addImage(imgData, 'PNG', MARGIN, contentStartY - offsetY, imgWidth, imgHeight);
+          offsetY += availableHeight;
+          remainingHeight -= availableHeight;
+        }
+
+        currentY = contentStartY + (imgHeight % availableHeight);
       }
     }
-    pdf.save('home.pdf');
+
+    const textContent = element.innerText;
+    pdf.setFontSize(0);
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(textContent, 0, 0);
+
+    pdf.save('document.pdf');
   }
 }
